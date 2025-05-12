@@ -13,3 +13,5 @@ statsmodels
 yfinance
 plotly
 nbformat
+statsmodels
+pmdarima

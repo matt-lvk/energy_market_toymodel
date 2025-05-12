@@ -3,6 +3,7 @@
 .RData
 .Rhistory
 .DS_Store
+/.sarimax
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
