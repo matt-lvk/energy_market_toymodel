@@ -38,3 +38,66 @@ def plot_actual_predict(df: pd.DataFrame,
 
     # Show the plot
     plt.show()
+
+
+def plot_violin_ts( 
+                    df: pd.DataFrame,
+                    x_var: str,
+                    y_var: str,
+                    title: str | None = None,
+                    ) -> None:
+    # Set the style and figure size
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(12, 6))
+
+    # Create the box plot
+    sns.boxplot(x=x_var, y=y_var, data=df, palette='pastel', width=0.5)
+
+    # Create the violin plot
+    sns.violinplot(x=x_var, y=y_var, data=df, scale='width', inner='quartile',
+                    cut=0, color=".8")
+
+    # Customize the plot
+    plt.title(title, fontsize=15)
+    plt.xlabel(x_var, fontsize=16)
+    plt.ylabel(y_var, fontsize=16)
+    plt.xticks(rotation=45, fontsize=12)
+    plt.yticks(fontsize=12)
+
+    # Add some statistics
+    for i, n in enumerate(df[x_var].unique()):
+        day_data = df[df[x_var] == n][y_var]
+        mean = day_data.mean()
+        plt.text(i, plt.ylim()[1], f'Mean: {mean:.0f}', 
+                horizontalalignment='center', fontsize=10)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_scatter_weather(
+                    df: pd.DataFrame,
+                    x_var: str,
+                    y_var: str,
+                    hue_var: str,
+                    title: str | None = None,
+                    ) -> None:
+    # Create the plot
+    sns.scatterplot(data=df, 
+                    x=x_var, 
+                    y=y_var, 
+                    hue=hue_var,
+                    alpha=0.5)
+
+    # Customize the plot
+    plt.title(title, fontsize=16)
+    plt.xlabel(x_var, fontsize=14)
+    plt.ylabel(y_var, fontsize=14)
+
+    # Customize the legend
+    plt.legend(title=hue_var, labels=df[hue_var].unique(), title_fontsize=12, fontsize=10)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
