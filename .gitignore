@@ -1,4 +1,7 @@
 /.vscode
+*.Rproj.user
+.RData
+.Rhistory
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
