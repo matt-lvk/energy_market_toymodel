@@ -1,0 +1,10 @@
+matplotlib
+numpy
+pandas
+darts
+meteostat
+holidays
+seaborn
+ipykernel
+scikit-learn
+xgboost
