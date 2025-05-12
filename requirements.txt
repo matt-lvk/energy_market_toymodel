@@ -8,3 +8,5 @@ seaborn
 ipykernel
 scikit-learn
 xgboost
+graphviz
+statsmodels
