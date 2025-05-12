@@ -11,3 +11,5 @@ xgboost
 graphviz
 statsmodels
 yfinance
+plotly
+nbformat
