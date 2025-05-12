@@ -14,5 +14,4 @@ yfinance
 plotly
 nbformat
 statsmodels
-pmdarima
 gym
