@@ -19,10 +19,13 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolu
 import xgboost as xgb
 from xgboost import plot_importance, plot_tree
 from abc import ABC, abstractmethod
+from prophet import Prophet
+
 
 
 @dataclass
 class ModelWrapper(ABC):
+
     # public
     ts: pd.DataFrame | TimeSeries
     split_point: datetime | float
@@ -63,13 +66,6 @@ class ARIMAWrapper(ModelWrapper):
     end_date_slice : datetime | None, optional
         End date to slice the time series, by default None
     """
-
-    # public
-    ts: pd.DataFrame | TimeSeries
-    split_point: datetime | float
-    start_date_slice: datetime | None = None
-    end_date_slice: datetime | None = None
-
     # private
     ts_train: pd.DataFrame | TimeSeries | None = None
     ts_test: pd.DataFrame | TimeSeries | None = None
@@ -139,14 +135,14 @@ class ARIMAWrapper(ModelWrapper):
         self.order = best_order
         return self.order
     
-    def run_ARIMA(self, p, d, q) -> ARIMA:
+    def run_ARIMA(self, p, d, q, method: str | None = None) -> ARIMA:
         if self.ts_train is None:
             raise ValueError("ts_train is empty. Run train_test_split first.")
         
         print("--------------------------------")
         print(f'Running ARIMA({p}, {d}, {q}) on train set')
         self.arima_model = ARIMA(self.ts_train, order=(p, d, q))
-        self.arima_model_fit = self.arima_model.fit()
+        self.arima_model_fit = self.arima_model.fit(method=method)
         self.order = (p, d, q)
         print(self.arima_model_fit.summary())
 
@@ -174,6 +170,8 @@ class ARIMAWrapper(ModelWrapper):
         arima_forecast.name = 'price_prediction'
         arima_forecast.to_frame()
         arima_pred_all = arima_pred_all.join(arima_forecast)
+        arima_pred_all.sort_index(inplace=True)
+
         plotters.plotly_actual_predict(
                 arima_pred_all,
                 'price',
@@ -190,12 +188,6 @@ class ARIMAWrapper(ModelWrapper):
 
 @dataclass
 class XGBWrapper(ModelWrapper):
-    # public
-    ts: pd.DataFrame | TimeSeries
-    split_point: datetime | float
-    start_date_slice: datetime | None = None
-    end_date_slice: datetime | None = None
-
     # private
     xbg_train: pd.DataFrame | None = None
     xbg_test: pd.DataFrame | None = None
@@ -256,6 +248,7 @@ class XGBWrapper(ModelWrapper):
         test = self.xgb_test.copy()
         test['price_prediction'] = self.forecasted_array
         predicted_XGBoost = pd.concat([test, self.xgb_train], sort=False)
+        predicted_XGBoost.sort_index(inplace=True)
 
         plotters.plotly_actual_predict(
                 predicted_XGBoost,
@@ -277,9 +270,22 @@ class XGBWrapper(ModelWrapper):
         print(f"MAE for XGBoost: {round(mae, 4)}")
 
     @property
-    def get_forecast_df(self):
+    def get_forecast_df(self) -> pd.Series:
         forecast = self.xgb_test.copy()
         forecast['price_prediction'] = self.forecasted_array
         forecast['datetime'] = self.xgb_test.index
+        forecast.sort_index(inplace=True)
         return forecast
 
+
+@dataclass
+class ProphetWrapper(ModelWrapper):
+    # private
+    xbg_train: pd.DataFrame | None = None
+    xbg_test: pd.DataFrame | None = None
+    X_train: pd.DataFrame | None = None
+    X_test: pd.DataFrame | None = None
+    y_train: pd.DataFrame | None = None
+    y_test: pd.DataFrame | None = None
+    model: xgb.XGBRegressor | None = None
+    forecasted_array: np.ndarray | None = None

@@ -144,3 +144,10 @@ def ts_train_test_split(df: pd.DataFrame | TimeSeries,
     train = df.loc[df.index <= split_date].copy()
     test = df.loc[df.index > split_date].copy()
     return train, test
+
+
+def get_rmse_mae(y_true, y_pred) -> tuple[float, float]:
+    rmse = round(np.sqrt(mean_squared_error(y_true, y_pred)), 3)
+    mae = round(mean_absolute_error(y_true, y_pred), 3)
+
+    return rmse, mae
