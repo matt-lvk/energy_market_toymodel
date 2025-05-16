@@ -206,6 +206,7 @@ class XGBWrapper(ModelWrapper):
     y_test: pd.DataFrame | None = None
     model: xgb.XGBRegressor | None = None
     forecasted_array: np.ndarray | None = None
+    predicted_XGBoost: pd.DataFrame | None = None
     
     def __post_init__(self):
         self.df_slicer()
@@ -256,11 +257,11 @@ class XGBWrapper(ModelWrapper):
         
         test = self.xgb_test.copy()
         test['price_prediction'] = self.forecasted_array
-        predicted_XGBoost = pd.concat([test, self.xgb_train], sort=False)
-        predicted_XGBoost.sort_index(inplace=True)
+        self.predicted_XGBoost = pd.concat([test, self.xgb_train], sort=False)
+        self.predicted_XGBoost.sort_index(inplace=True)
 
         plotters.plotly_actual_predict(
-                predicted_XGBoost,
+                self.predicted_XGBoost,
                 'price',
                 'price_prediction',
                 'Day-ahead Price [EUR/MWh] Predicted with XGBoost',
