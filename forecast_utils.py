@@ -22,10 +22,11 @@ from abc import ABC, abstractmethod
 from prophet import Prophet
 
 
-
 @dataclass
 class ModelWrapper(ABC):
-
+    """
+    Parent class for model wrapper
+    """
     # public
     ts: pd.DataFrame | TimeSeries
     split_point: datetime | float
@@ -49,6 +50,9 @@ class ModelWrapper(ABC):
     def get_forecast(self):
         pass
 
+    @abstractmethod
+    def get_rmse_mae(self):
+        pass
 
 @dataclass
 class ARIMAWrapper(ModelWrapper):
@@ -179,11 +183,16 @@ class ARIMAWrapper(ModelWrapper):
                 f'Day-ahead Price [EUR/MWh] Predicted with ARIMA{self.order}',
                 )
         
-    def get_mae_rmse(self):
-        mae = mean_absolute_error(self.ts_test, self.forecasted_series)
+    def get_rmse_mae(self) -> tuple[float, float]:
         rmse = np.sqrt(mean_squared_error(self.ts_test, self.forecasted_series))
+        mae = mean_absolute_error(self.ts_test, self.forecasted_series)
+
+        rmse = round(rmse, 3)
+        mae = round(mae, 3)
+        
         print(f"RSME for ARIMA{self.order}: {round(rmse, 4)}")
         print(f"MAE for ARIMA{self.order}: {round(mae, 4)}")
+        return rmse, mae
 
 
 @dataclass
@@ -257,8 +266,7 @@ class XGBWrapper(ModelWrapper):
                 'Day-ahead Price [EUR/MWh] Predicted with XGBoost',
                 )
     
-    @property
-    def get_mae_rmse(self):
+    def get_rmse_mae(self) -> tuple[float, float]:
         test = self.xgb_test.copy()
         test['price_prediction'] = self.forecasted_array
 
@@ -268,6 +276,7 @@ class XGBWrapper(ModelWrapper):
                     y_pred=test['price_prediction'])
         print(f"RSME for XGBoost: {round(rmse, 4)}")
         print(f"MAE for XGBoost: {round(mae, 4)}")
+        return rmse, mae
 
     @property
     def get_forecast_df(self) -> pd.Series:
@@ -281,11 +290,66 @@ class XGBWrapper(ModelWrapper):
 @dataclass
 class ProphetWrapper(ModelWrapper):
     # private
-    xbg_train: pd.DataFrame | None = None
-    xbg_test: pd.DataFrame | None = None
-    X_train: pd.DataFrame | None = None
-    X_test: pd.DataFrame | None = None
-    y_train: pd.DataFrame | None = None
-    y_test: pd.DataFrame | None = None
-    model: xgb.XGBRegressor | None = None
-    forecasted_array: np.ndarray | None = None
+    prophet_train: pd.DataFrame | None = None
+    prophet_test: pd.DataFrame | None = None
+    prophet_model: xgb.XGBRegressor | None = None
+    forecasted_df: pd.DataFrame | None = None
+
+    def __post_init__(self):
+        self.df_slicer()
+
+        print("Train-Test split at", self.split_point)
+        train, test = self.train_test_split()
+
+        # Adjust index for prophet"
+        self.ts = self.index_to_column(self.ts, 'price')
+        self.prophet_train = self.index_to_column(train, 'price')
+        self.prophet_test = self.index_to_column(test, 'price')
+
+    def index_to_column(
+                    self,
+                    df: pd.DataFrame,
+                    target_variable: str
+                    ) -> pd.DataFrame:
+        data = df.copy()
+        data['Datetime'] = pd.to_datetime(data.index)
+        data.reset_index(drop=True, inplace=True)
+        data = data.sort_values('Datetime')
+        
+        data = data.rename(columns={'Datetime': 'ds', target_variable: 'y'})
+        return data
+    
+    def run_prophet(self) -> None:
+        self.prophet_model = Prophet(interval_width=0.95)
+
+        self.prophet_model.fit(self.prophet_train)
+        print("Prophet model fitted. Use get_forecast() to get forecast.")
+    
+    def get_forecast(self) -> pd.DataFrame:
+        self.forecasted_df = self.prophet_model.predict(
+                        self.prophet_test[['ds']]
+                        )  # Keep the dataset format
+        return self.forecasted_df
+    
+    def plot_forecast(self) -> None:
+        df = self.ts[['ds', 'y']]
+        df = df.merge(self.forecasted_df, on='ds', how='left')
+        df.set_index('ds', inplace=True)
+
+        plotters.plotly_actual_predict(
+                df,
+                'y',
+                'yhat',
+                'Day-ahead Price [EUR/MWh] Predicted with Prophet',
+                )
+        
+    def get_rmse_mae(self) -> tuple[float, float]:
+        prophet_mae = round(mean_absolute_error(self.prophet_test['y'],
+                                            self.forecasted_df['yhat']), 3)
+        
+        prophet_rsme = round(np.sqrt(mean_squared_error(self.prophet_test['y'],
+                                                    self.forecasted_df['yhat'])), 3)
+        
+        print(f"RSME for Prophet: {round(prophet_rsme, 3)}")
+        print(f"MAE for Prophet: {round(prophet_mae, 3)}")
+        return prophet_rsme, prophet_mae
