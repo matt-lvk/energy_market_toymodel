@@ -189,7 +189,7 @@ class ARIMAWrapper(ModelWrapper):
 
         rmse = round(rmse, 3)
         mae = round(mae, 3)
-        
+
         print(f"RSME for ARIMA{self.order}: {round(rmse, 4)}")
         print(f"MAE for ARIMA{self.order}: {round(mae, 4)}")
         return rmse, mae
@@ -274,8 +274,8 @@ class XGBWrapper(ModelWrapper):
                     y_pred=test['price_prediction']))
         mae = mean_absolute_error(y_true=self.xgb_test['price'],
                     y_pred=test['price_prediction'])
-        print(f"RSME for XGBoost: {round(rmse, 4)}")
-        print(f"MAE for XGBoost: {round(mae, 4)}")
+        print(f"RSME for XGBoost: {round(rmse, 3)}")
+        print(f"MAE for XGBoost: {round(mae, 3)}")
         return rmse, mae
 
     @property

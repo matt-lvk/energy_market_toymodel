@@ -162,5 +162,5 @@ def print_rmse_mae_table(
         print(title)
     table = [[key] + (value if isinstance(value, list) else list(value.values())) 
             for key, value in forecast_metric.items()]
-    print(tabulate(table, headers=["Key", "RMSE", "MAE"], tablefmt="grid"))
+    print(tabulate(table, headers=["Model", "RMSE", "MAE"], tablefmt="grid"))
     print("-" * 60)
