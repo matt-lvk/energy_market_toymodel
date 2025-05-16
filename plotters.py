@@ -17,8 +17,6 @@ def plot_actual_predict(
                         ) -> None:
     sns.set_style("whitegrid")
     sns.set_context("notebook", font_scale=1.2)
-
-    # Create the plot
     plt.figure(figsize=(12, 6))
     
     sns.lineplot(
@@ -157,5 +155,52 @@ def plot_compare_two_col(
     )
 
     # Show the figure
+    fig.show()
+
+
+def plotly_actual_predict(
+                        df: pd.DataFrame,
+                        y_var: str,
+                        pred_var: str,
+                        title: str,
+                        ) -> None:
+    # Create the plot
+    fig = make_subplots(specs=[[{"secondary_y": False}]])
+    
+    # Add actual values
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df[y_var], name=y_var, line=dict(color='grey'))
+    )
+    
+    # Add predicted values
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df[pred_var], name=pred_var, line=dict(color='blue'))
+    )
+    
+    # Customize the plot
+    fig.update_layout(
+        title=title,
+        xaxis_title='Date',
+        yaxis_title=y_var,
+        legend_title='Legend',
+        font=dict(size=12),
+        hovermode="x unified"
+    )
+    
+    # Update x-axis
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    
+    # Show the plot
     fig.show()
 
