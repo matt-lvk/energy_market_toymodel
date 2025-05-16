@@ -19,3 +19,6 @@ ipywidgets
 prophet
 tensorflow
 tabulate
+cvxpy
+cvxopt
+ecos
