@@ -6,6 +6,7 @@ import holidays
 from meteostat import Point, Hourly
 from darts import TimeSeries
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+from tabulate import tabulate
 
 
 
@@ -151,3 +152,15 @@ def get_rmse_mae(y_true, y_pred) -> tuple[float, float]:
     mae = round(mean_absolute_error(y_true, y_pred), 3)
 
     return rmse, mae
+
+
+def print_rmse_mae_table(
+                        forecast_metric: dict[str, list[float, float]],
+                        title: str | None = None
+                         ):
+    if title:
+        print(title)
+    table = [[key] + (value if isinstance(value, list) else list(value.values())) 
+            for key, value in forecast_metric.items()]
+    print(tabulate(table, headers=["Key", "RMSE", "MAE"], tablefmt="grid"))
+    print("-" * 60)

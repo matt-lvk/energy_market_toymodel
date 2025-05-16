@@ -18,3 +18,4 @@ gym
 ipywidgets
 prophet
 tensorflow
+tabulate
