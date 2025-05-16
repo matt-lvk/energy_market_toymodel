@@ -16,11 +16,39 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 import plotters
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
-
+import xgboost as xgb
+from xgboost import plot_importance, plot_tree
+from abc import ABC, abstractmethod
 
 
 @dataclass
-class ARIMAWrapper:
+class ModelWrapper(ABC):
+    # public
+    ts: pd.DataFrame | TimeSeries
+    split_point: datetime | float
+    start_date_slice: datetime | None = None
+    end_date_slice: datetime | None = None
+
+    def df_slicer(self):
+        if self.start_date_slice is not None:
+            self.ts = self.ts.loc[self.ts.index >= self.start_date_slice]
+        if self.end_date_slice is not None:
+            self.ts = self.ts.loc[self.ts.index <= self.end_date_slice]
+        self.ts = self.ts.sort_index()
+
+    def train_test_split(self) -> tuple[pd.DataFrame | TimeSeries, pd.DataFrame | TimeSeries]:
+        if isinstance(self.split_point, float):
+            print("Using darts train_test_split function")
+            return train_test_split(self.ts, train_size=self.split_point)
+        return du.ts_train_test_split(self.ts, self.split_point)
+
+    @abstractmethod
+    def get_forecast(self):
+        pass
+
+
+@dataclass
+class ARIMAWrapper(ModelWrapper):
     """
     Wrapper class for ARIMA
 
@@ -51,17 +79,13 @@ class ARIMAWrapper:
     order: tuple[int, int, int] | None = None
 
     def __post_init__(self):
-        if self.start_date_slice is not None:
-            self.ts = self.ts.loc[self.ts.index >= self.start_date_slice]
-        if self.end_date_slice is not None:
-            self.ts = self.ts.loc[self.ts.index <= self.end_date_slice]
-        self.ts = self.ts.sort_index()
+        self.df_slicer()
 
         print("Stationarity test for whole series with 0 lag:")
         self.check_stationarity()
 
         print("Train-Test split at", self.split_point)
-        self.train_test_split()
+        self.ts_train, self.ts_test = self.train_test_split()
 
         print("Stationarity test for train series with 0 lag:")
         self.check_stationarity(self.ts_train)
@@ -84,12 +108,6 @@ class ARIMAWrapper:
         plt.subplot(122)
         plot_pacf(df, lags=40, ax=plt.gca())
         plt.show()
-    
-    def train_test_split(self) -> None:
-        if isinstance(self.split_point, float):
-            print("Using darts train_test_split function")
-            self.ts_train, self.ts_test = train_test_split(self.ts, train_size=self.split_point)
-        self.ts_train, self.ts_test = du.ts_train_test_split(self.ts, self.split_point)
 
     def get_best_ARIMA_params(
                                 self,
@@ -164,8 +182,104 @@ class ARIMAWrapper:
                 )
         
     def get_mae_rmse(self):
-        self.mae = mean_absolute_error(self.ts_test, self.forecasted_series)
-        self.mse = mean_squared_error(self.ts_test, self.forecasted_series)
-        self.rmse = np.sqrt(self.mse)
-        print(f"RSME for ARIMA{self.order}: {self.rmse}")
-        print(f"MAE for ARIMA{self.order}: {self.mae}")
+        mae = mean_absolute_error(self.ts_test, self.forecasted_series)
+        rmse = np.sqrt(mean_squared_error(self.ts_test, self.forecasted_series))
+        print(f"RSME for ARIMA{self.order}: {round(rmse, 4)}")
+        print(f"MAE for ARIMA{self.order}: {round(mae, 4)}")
+
+
+@dataclass
+class XGBWrapper(ModelWrapper):
+    # public
+    ts: pd.DataFrame | TimeSeries
+    split_point: datetime | float
+    start_date_slice: datetime | None = None
+    end_date_slice: datetime | None = None
+
+    # private
+    xbg_train: pd.DataFrame | None = None
+    xbg_test: pd.DataFrame | None = None
+    X_train: pd.DataFrame | None = None
+    X_test: pd.DataFrame | None = None
+    y_train: pd.DataFrame | None = None
+    y_test: pd.DataFrame | None = None
+    model: xgb.XGBRegressor | None = None
+    forecasted_array: np.ndarray | None = None
+    
+    def __post_init__(self):
+        self.df_slicer()
+
+        print("Train-Test split at", self.split_point)
+        self.xgb_train, self.xgb_test = self.train_test_split()
+
+        self.X_train, self.y_train = self.xgb_train.drop(['price', 'datetime'], axis=1), self.xgb_train['price']
+        self.X_test, self.y_test = self.xgb_test.drop(['price', 'datetime'], axis=1), self.xgb_test['price']
+
+    def add_lagged_MA_price(self, n: int):
+        if n > 1:
+            print(f"Adding 1-lagged hour of price to X_train and X_test")
+            self.X_train['mean_previous_1_hrs'] = self.y_train.shift(1)
+            self.X_test['mean_previous_1_hrs'] = self.y_test.shift(1)
+
+        for i in range(2, n + 1):
+            print(f"Adding mean of previous {i} hours of price to X_train and X_test")
+            self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(4)\
+                                    .rolling(window=f'{i}H', min_periods=1).mean()
+            self.X_test[f'mean_previous_{i}_hrs'] = self.y_test.shift(4)\
+                                    .rolling(window=f'{i}H', min_periods=1).mean()
+            
+    def run_xgb(self):
+        self.model = xgb.XGBRegressor()
+        self.model.fit(
+                self.X_train, self.y_train,
+                eval_set=[(self.X_train, self.y_train), (self.X_test, self.y_test)],
+                verbose=False
+                )
+        print("XGBoost model fitted.")
+
+    @property
+    def plot_importance(self):
+        
+        if self.model is None:
+            raise ValueError("self.model is empty. Run run_xgb first.")
+        plot_importance(self.model)
+        plt.show()
+
+    def get_forecast(self) -> np.ndarray:
+        self.forecasted_array = self.model.predict(self.X_test)
+        return self.forecasted_array
+    
+    def plot_forecast(self):
+        if self.forecasted_array is None:
+            raise ValueError("self.forecasted_array is empty. Run get_forecast first.")
+        
+        test = self.xgb_test.copy()
+        test['price_prediction'] = self.forecasted_array
+        predicted_XGBoost = pd.concat([test, self.xgb_train], sort=False)
+
+        plotters.plotly_actual_predict(
+                predicted_XGBoost,
+                'price',
+                'price_prediction',
+                'Day-ahead Price [EUR/MWh] Predicted with XGBoost',
+                )
+    
+    @property
+    def get_mae_rmse(self):
+        test = self.xgb_test.copy()
+        test['price_prediction'] = self.forecasted_array
+
+        rmse = np.sqrt(mean_squared_error(y_true=self.xgb_test['price'],
+                    y_pred=test['price_prediction']))
+        mae = mean_absolute_error(y_true=self.xgb_test['price'],
+                    y_pred=test['price_prediction'])
+        print(f"RSME for XGBoost: {round(rmse, 4)}")
+        print(f"MAE for XGBoost: {round(mae, 4)}")
+
+    @property
+    def get_forecast_df(self):
+        forecast = self.xgb_test.copy()
+        forecast['price_prediction'] = self.forecasted_array
+        forecast['datetime'] = self.xgb_test.index
+        return forecast
+
