@@ -217,17 +217,48 @@ class XGBWrapper(ModelWrapper):
         self.X_train, self.y_train = self.xgb_train.drop(['price', 'datetime'], axis=1), self.xgb_train['price']
         self.X_test, self.y_test = self.xgb_test.drop(['price', 'datetime'], axis=1), self.xgb_test['price']
 
-    def add_lagged_MA_price(self, n: int):
-        if n > 1:
-            print(f"Adding 1-lagged hour of price to X_train and X_test")
-            self.X_train['mean_previous_1_hrs'] = self.y_train.shift(1)
-            self.X_test['mean_previous_1_hrs'] = self.y_test.shift(1)
+    def add_lagged_MA_price(self,
+                            hours: int | None = None,
+                            days: int | None = None,
+                            ) -> None:
+        
+        """
+        Add n-lagged moving average price to X_train and X_test.
 
-        for i in range(2, n + 1):
+        Parameters
+        ----------
+        hours : int, optional
+            Number of hours to lag. If not specified, days is used.
+        days : int, optional
+            Number of days to lag. If not specified, hours is used.
+
+        Notes
+        -----
+        Only one of hours or days can be specified. If both are specified,
+        an Exception is raised.
+
+        For example, if hours=3, the mean of the previous 3 hours of price will
+        be added to X_train and X_test. If days=1, the mean of the previous 24
+        hours of price will be added to X_train and X_test.
+        """
+        if (hours is not None) and (days is not None):
+            raise Exception("Only hours or days can be specified.")
+        elif hours is not None:
+            period = [i for i in range(1, hours + 1)]
+        elif days is not None:
+            period = [i * 24 for i in range(1, days + 1)]
+
+        print("Adding n-lagged hour of price to X_train and X_test")
+        # self.X_train['mean_previous_1_hrs'] = self.y_train.shift(1)
+        # self.X_test['mean_previous_1_hrs'] = self.y_test.shift(1)
+
+        assert period is not None
+
+        for i in period:
             print(f"Adding mean of previous {i} hours of price to X_train and X_test")
-            self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(4)\
+            self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(i)\
                                     .rolling(window=f'{i}H', min_periods=1).mean()
-            self.X_test[f'mean_previous_{i}_hrs'] = self.y_test.shift(4)\
+            self.X_test[f'mean_previous_{i}_hrs'] = self.y_test.shift(i)\
                                     .rolling(window=f'{i}H', min_periods=1).mean()
             
     def run_xgb(self):
