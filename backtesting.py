@@ -51,6 +51,9 @@ class BacktestXGB(BacktestParent):
         rmse, mae = self.short_xgb_obj.get_rmse_mae()
         return rmse, mae
     
+    def get_windowed_forecast(self) -> pd.DataFrame:
+        return self.short_xgb_obj.get_forecast_df
+    
 
 @dataclass
 class BacktestProphet(BacktestParent):

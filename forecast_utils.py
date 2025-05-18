@@ -280,6 +280,7 @@ class XGBWrapper(ModelWrapper):
     forecasted_array: np.ndarray | None = None
     predicted_XGBoost: pd.DataFrame | None = None
     n_estimators: int = None
+
     def __post_init__(self):
         self.df_slicer()
 
