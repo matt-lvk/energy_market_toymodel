@@ -40,18 +40,13 @@ def plot_actual_predict(
     #                 color=color_pal[1]
     #                 )
 
-    # Customize the plot
     plt.title(title)
     plt.xlabel('Date')
     plt.ylabel(y_var)
 
-    # Rotate x-axis labels for better readability
     plt.xticks(rotation=45)
 
-    # Adjust layout to prevent cutting off labels
     plt.tight_layout()
-
-    # Show the plot
     plt.show()
 
 
@@ -62,25 +57,24 @@ def plot_violin_ts(
                     title: str | None = None,
                     show_mean: bool = True
                     ) -> None:
-    # Set the style and figure size
+
     sns.set_style("whitegrid")
     plt.figure(figsize=(12, 6))
 
-    # Create the box plot
+    # box plot
     sns.boxplot(x=x_var, y=y_var, data=df, palette='pastel', width=0.5)
 
-    # Create the violin plot
+    # violin plot
     sns.violinplot(x=x_var, y=y_var, data=df, scale='width', inner='quartile',
                     cut=0, color=".8")
 
-    # Customize the plot
     plt.title(title, fontsize=15)
     plt.xlabel(x_var, fontsize=16)
     plt.ylabel(y_var, fontsize=16)
     plt.xticks(rotation=45, fontsize=12)
     plt.yticks(fontsize=12)
 
-    # Add some statistics
+    # Add mean in pic
     if show_mean:
         for i, n in enumerate(df[x_var].unique()):
             day_data = df[df[x_var] == n][y_var]
@@ -88,7 +82,6 @@ def plot_violin_ts(
             plt.text(i, plt.ylim()[1], f'Mean: {mean:.0f}', 
                     horizontalalignment='center', fontsize=10)
 
-    # Show the plot
     plt.tight_layout()
     plt.show()
 
@@ -100,22 +93,18 @@ def plot_scatter_weather(
                     hue_var: str,
                     title: str | None = None,
                     ) -> None:
-    # Create the plot
+
     sns.scatterplot(data=df, 
                     x=x_var, 
                     y=y_var, 
                     hue=hue_var,
                     alpha=0.5)
 
-    # Customize the plot
     plt.title(title, fontsize=16)
     plt.xlabel(x_var, fontsize=14)
     plt.ylabel(y_var, fontsize=14)
 
-    # Customize the legend
     plt.legend(title=hue_var, labels=df[hue_var].unique(), title_fontsize=12, fontsize=10)
-
-    # Show the plot
     plt.tight_layout()
     plt.show()
 
@@ -126,10 +115,9 @@ def plot_compare_two_col(
                     y2_var: str,
                     title: str | None = None,
                     ) -> None:
-    # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # Add traces
+
     fig.add_trace(
         go.Scatter(x=df.index, y=df[y1_var], name="y1_var"),
         secondary_y=False,
@@ -140,21 +128,17 @@ def plot_compare_two_col(
         secondary_y=True,
     )
 
-    # Set x-axis title
     fig.update_xaxes(title_text="Date")
 
-    # Set y-axes titles
     fig.update_yaxes(title_text=y1_var, secondary_y=False)
     fig.update_yaxes(title_text=y2_var, secondary_y=True)
 
-    # Update layout
     fig.update_layout(
         title_text=title,
         legend=dict(y=1, x=0.01),
         hovermode="x unified"
     )
 
-    # Show the figure
     fig.show()
 
 
@@ -164,20 +148,34 @@ def plotly_actual_predict(
                         pred_var: str,
                         title: str,
                         ) -> None:
-    # Create the plot
+    """
+    Show the plot actual and predicted values of a time series.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe containing the actual and predicted values.
+    y_var : str
+        Name of the column containing the actual values.
+    pred_var : str
+        Name of the column containing the predicted values.
+    title : str
+        Title of the plot.
+    
+    Returns
+    -------
+    None
+    """
     fig = make_subplots(specs=[[{"secondary_y": False}]])
     
-    # Add actual values
     fig.add_trace(
         go.Scatter(x=df.index, y=df[y_var], name=y_var, line=dict(color='grey'))
     )
     
-    # Add predicted values
     fig.add_trace(
         go.Scatter(x=df.index, y=df[pred_var], name=pred_var, line=dict(color='blue'))
     )
     
-    # Customize the plot
     fig.update_layout(
         title=title,
         xaxis_title='Date',
@@ -187,7 +185,7 @@ def plotly_actual_predict(
         hovermode="x unified"
     )
     
-    # Update x-axis
+    # add nice button 
     fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(
@@ -201,6 +199,5 @@ def plotly_actual_predict(
         )
     )
     
-    # Show the plot
     fig.show()
 

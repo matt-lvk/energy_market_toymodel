@@ -57,18 +57,41 @@ class ModelWrapper(ABC):
 @dataclass
 class ARIMAWrapper(ModelWrapper):
     """
-    Wrapper class for ARIMA
+    A wrapper for the ARIMA model, providing functionality to preprocess time series data,
+    determine stationarity, plot ACF and PACF graphs, determine the best ARIMA parameters,
+    run the ARIMA model, forecast future values, and evaluate model performance.
 
-    Parameters
+    Attributes
     ----------
     ts : pd.DataFrame | TimeSeries
-        Input time series
+        The time series data as a dataframe or TimeSeries object.
     split_point : datetime | float
-        Split point for train and test
-    start_date_slice : datetime | None, optional
-        Start date to slice the time series, by default None
-    end_date_slice : datetime | None, optional
-        End date to slice the time series, by default None
+        The point at which the data is split into training and testing sets.
+        If it's a float, it represents the proportion of the dataset to include in the train split.
+    start_date_slice : datetime, optional
+        Optional starting date for slicing the time series data.
+    end_date_slice : datetime, optional
+        Optional ending date for slicing the time series data.    
+
+    Methods
+    -------
+    plot_acf_pacf(df=None)
+        Plots the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) of the time series.
+    get_best_ARIMA_params(df=None)
+        Determines the best ARIMA parameters based on the lowest Akaike Information Criterion (AIC).
+    run_ARIMA(p, d, q, method=None)
+        Runs the ARIMA model on the training set with provided order and fitting method.
+    get_forecast(n_pred=None)
+        Forecasts future values of the time series based on the fitted ARIMA model.
+    plot_forecast()
+        Plots the forecasted values against the actual values in the time series.
+    get_rmse_mae()
+        Calculates the Root Mean Square Error (RMSE) and Mean Absolute Error (MAE) of the forecasted values.
+
+    Notes
+    -----
+    The class assumes that the input time series includes a 'price' column that is used as the target variable.
+    The `ts` attribute from the parent class is used as the input time series data.
     """
     # private
     ts_train: pd.DataFrame | TimeSeries | None = None
@@ -212,6 +235,38 @@ class ARIMAWrapper(ModelWrapper):
 
 @dataclass
 class XGBWrapper(ModelWrapper):
+    """
+    A wrapper for the XGBoost regression model specifically tailored for time series forecasting.
+
+    Attributes
+    ----------
+    ts : pd.DataFrame | TimeSeries
+        The time series data as a dataframe or TimeSeries object.
+    split_point : datetime | float
+        The point at which the data is split into training and testing sets.
+        If it's a float, it represents the proportion of the dataset to include in the train split.
+    start_date_slice : datetime, optional
+        Optional starting date for slicing the time series data.
+    end_date_slice : datetime, optional
+        Optional ending date for slicing the time series data.    
+
+    Methods
+    -------
+    add_lagged_MA_price(hours=None, days=None)
+        Adds lagged moving average price as a new feature to the training and testing sets.
+    run_xgb()
+        Initializes and fits the XGBoost model on the training data.
+    plot_importance
+        A property that plots the feature importance of the fitted XGBoost model.
+    get_forecast() -> np.ndarray
+        Predicts the target values using the fitted XGBoost model and returns the forecasted numpy array.
+    plot_forecast()
+        Plots the actual versus predicted prices using the forecasted data.
+    get_rmse_mae() -> tuple[float, float]
+        Calculates and returns the Root Mean Square Error (RMSE) and Mean Absolute Error (MAE) of the predictions.
+    get_forecast_df() -> pd.Series
+        A property that returns the forecasted values as a pandas Series with the datetime index.
+    """
     # private
     xbg_train: pd.DataFrame | None = None
     xbg_test: pd.DataFrame | None = None
@@ -336,6 +391,36 @@ class XGBWrapper(ModelWrapper):
 
 @dataclass
 class ProphetWrapper(ModelWrapper):
+    """
+    A wrapper class for the Prophet forecasting model, facilitating the preprocessing
+    of time series data, training of the Prophet model, and generation of forecasts.
+
+    Attributes
+    ----------
+    ts : pd.DataFrame | TimeSeries
+        The time series data as a dataframe or TimeSeries object.
+    split_point : datetime | float
+        The point at which the data is split into training and testing sets.
+        If it's a float, it represents the proportion of the dataset to include in the train split.
+    start_date_slice : datetime, optional
+        Optional starting date for slicing the time series data.
+    end_date_slice : datetime, optional
+        Optional ending date for slicing the time series data.
+
+    Methods
+    -------
+    index_to_column(df, target_variable)
+        Converts a dataframe index to a column and renames it for Prophet compatibility.
+    run_prophet()
+        Trains the Prophet model using the training dataset.
+    get_forecast()
+        Generates a forecast using the trained Prophet model and the test dataset.
+    plot_forecast()
+        Plots the actual versus predicted values using the forecast data.
+    get_rmse_mae() -> tuple[float, float]
+        Calculates and returns the Root Mean Squared Error (RMSE) and Mean Absolute Error (MAE)
+        of the forecast.
+    """
     # private
     prophet_train: pd.DataFrame | None = None
     prophet_test: pd.DataFrame | None = None
