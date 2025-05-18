@@ -62,10 +62,11 @@ def add_locations_weather(
                     locations: dict[str, tuple[float, float]]
                     ) -> pd.DataFrame:
     """
-    Add weather data to the given DataFrame from the given locations. This 
-    function uses the meteostat library to fetch weather data. If more than one 
-    location is given, the function will fetch weather data for each location
-    and return the mean value.
+    Use meteostat to fetch weather data to the given DataFrame from the given 
+    locations.
+    
+    If more than one location is given, the function will fetch weather data 
+    for each location and return its mean value.
 
     Parameters
     ----------
