@@ -22,6 +22,8 @@ from abc import ABC, abstractmethod
 from prophet import Prophet
 
 
+seed_value = 11
+
 @dataclass
 class ModelWrapper(ABC):
     """
@@ -277,7 +279,7 @@ class XGBWrapper(ModelWrapper):
     model: xgb.XGBRegressor | None = None
     forecasted_array: np.ndarray | None = None
     predicted_XGBoost: pd.DataFrame | None = None
-    
+    n_estimators: int = None
     def __post_init__(self):
         self.df_slicer()
 
@@ -311,20 +313,18 @@ class XGBWrapper(ModelWrapper):
         be added to X_train and X_test. If days=1, the mean of the previous 24
         hours of price will be added to X_train and X_test.
         """
-        if (hours is not None) and (days is not None):
-            raise Exception("Only hours or days can be specified.")
-        elif hours is not None:
-            period = [i for i in range(1, hours + 1)]
-        elif days is not None:
-            period = [i * 24 for i in range(1, days + 1)]
+        periods = []
+
+        if hours is not None:
+            periods.extend([i for i in range(1, hours + 1)])
+        if days is not None:
+            periods.extend([i * 24 for i in range(1, days + 1)])
 
         print("Adding n-lagged hour of price to X_train and X_test")
         # self.X_train['mean_previous_1_hrs'] = self.y_train.shift(1)
         # self.X_test['mean_previous_1_hrs'] = self.y_test.shift(1)
 
-        assert period is not None
-
-        for i in period:
+        for i in periods:
             print(f"Adding mean of previous {i} hours of price to X_train and X_test")
             self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(i)\
                                     .rolling(window=f'{i}H', min_periods=1).mean()
@@ -332,7 +332,12 @@ class XGBWrapper(ModelWrapper):
                                     .rolling(window=f'{i}H', min_periods=1).mean()
             
     def run_xgb(self):
-        self.model = xgb.XGBRegressor()
+        self.model = xgb.XGBRegressor(
+                                    seed=seed_value,
+                                    n_estimators=self.n_estimators
+                                    )
+        print(f"XGBoost model initialized with seed {seed_value} and {self.n_estimators} trees.")
+
         self.model.fit(
                 self.X_train, self.y_train,
                 eval_set=[(self.X_train, self.y_train), (self.X_test, self.y_test)],
