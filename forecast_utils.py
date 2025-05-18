@@ -113,6 +113,21 @@ class ARIMAWrapper(ModelWrapper):
                                 self,
                                 df: pd.DataFrame | None = None
                             ) -> tuple[int, int, int, ARIMA]:
+        """
+        Find the best ARIMA parameters for the given time series. This method is 
+        done by looping (p,d,q) at max 6, 3, 6 to find the lowest AIC (which
+        presents information loss)
+        
+        Parameters
+        ----------
+        df : pd.DataFrame | None, optional
+            Time series data, by default None
+
+        Returns
+        -------
+        tuple[int, int, int, ARIMA]
+            The parameters (p, d, q) and the best model
+        """
         if df is None:
             df = self.ts
         best_aic = float('inf')
@@ -343,6 +358,22 @@ class ProphetWrapper(ModelWrapper):
                     df: pd.DataFrame,
                     target_variable: str
                     ) -> pd.DataFrame:
+        """
+        Adjust the dataframe to be used in Prophet. Namely, it renames datatime 
+        index into 'ds' and target variable into 'y'
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Time series data
+        target_variable : str
+            column name of the target variable
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe with adjusted index for Prophet
+        """
         data = df.copy()
         data['Datetime'] = pd.to_datetime(data.index)
         data.reset_index(drop=True, inplace=True)
