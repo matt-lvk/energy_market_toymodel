@@ -24,6 +24,7 @@ class BacktestParent(ABC):
         pass
 
 
+@dataclass
 class BacktestXGB(BacktestParent):
     short_xgb_obj: XGBWrapper | None = None
 
