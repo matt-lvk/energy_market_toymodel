@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 @dataclass
 class BacktestParent(ABC):
     """parent class for backtesting"""
-    class BacktestXGB(BacktestParent):
     cleaned_merged_data: pd.DataFrame
     short_split_date: datetime
     n_backward: int = 60
@@ -85,7 +84,7 @@ class BacktestXGB(BacktestParent):
 
 @dataclass
 class BacktestProphet(BacktestParent):
-        """
+    """
     A class that extends BacktestParent to perform backtesting using the Prophet model.
 
     This class uses the ProphetWrapper to create, train, and evaluate an Prophet model
@@ -138,7 +137,7 @@ class BacktestProphet(BacktestParent):
 
 @dataclass
 class BacktestARIMA(BacktestParent):
-        """
+    """
     A class that extends BacktestParent to perform backtesting using the ARIMA model.
 
     This class uses the ARIMAWrapper to create, train, and evaluate an ARIMA model
