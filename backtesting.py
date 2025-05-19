@@ -5,14 +5,13 @@ import numpy as np
 import pandas as pd
 from forecast_utils import ARIMAWrapper, XGBWrapper, ProphetWrapper
 from dataclasses import dataclass
-import data_utils as du
 from abc import ABC, abstractmethod
-from statsmodels.tsa.arima.model import ARIMA
-from prophet import Prophet
 
 
 @dataclass
 class BacktestParent(ABC):
+    """parent class for backtesting"""
+    class BacktestXGB(BacktestParent):
     cleaned_merged_data: pd.DataFrame
     short_split_date: datetime
     n_backward: int = 60
@@ -26,6 +25,35 @@ class BacktestParent(ABC):
 
 @dataclass
 class BacktestXGB(BacktestParent):
+    """
+    A class that extends BacktestParent to perform backtesting using the XGBoost model.
+
+    This class uses the XGBWrapper to create, train, and evaluate an XGBoost model
+    within a specified backtesting time window.
+
+    Attributes
+    ----------
+    cleaned_merged_data : pd.DataFrame
+        The preprocessed data set to be used for backtesting.
+    short_split_date : datetime
+        The date at which to split the data into training and testing sets.
+    n_backward : int, default 60
+        The number of days to look back from the `short_split_date` to create the training set.
+    forecast_window : int, default 24
+        The size of the window, in hours, for which to forecast ahead from the `short_split_date`.
+    forecast_metric : dict[str, list] | None, optional
+        A dictionary to store forecast metrics, initialized to None by default.
+    
+    Methods
+    -------
+    __post_init__()
+        Initializes the backtesting process by setting up the XGBWrapper with the
+        appropriate data slices and training the model.
+    get_windowed_rsme_mae() -> tuple[float, float]
+        Retrieves the RSME and MAE for the forecasted window from the XGBWrapper.
+    get_windowed_forecast() -> pd.DataFrame
+        Retrieves the forecasted DataFrame with actual and predicted values for the window.
+    """
     short_xgb_obj: XGBWrapper | None = None
 
     def __post_init__(self):
@@ -57,6 +85,35 @@ class BacktestXGB(BacktestParent):
 
 @dataclass
 class BacktestProphet(BacktestParent):
+        """
+    A class that extends BacktestParent to perform backtesting using the Prophet model.
+
+    This class uses the ProphetWrapper to create, train, and evaluate an Prophet model
+    within a specified backtesting time window.
+
+    Attributes
+    ----------
+    cleaned_merged_data : pd.DataFrame
+        The preprocessed data set to be used for backtesting.
+    short_split_date : datetime
+        The date at which to split the data into training and testing sets.
+    n_backward : int, default 60
+        The number of days to look back from the `short_split_date` to create the training set.
+    forecast_window : int, default 24
+        The size of the window, in hours, for which to forecast ahead from the `short_split_date`.
+    forecast_metric : dict[str, list] | None, optional
+        A dictionary to store forecast metrics, initialized to None by default.
+    
+    Methods
+    -------
+    __post_init__()
+        Initializes the backtesting process by setting up the XGBWrapper with the
+        appropriate data slices and training the model.
+    get_windowed_rsme_mae() -> tuple[float, float]
+        Retrieves the RSME and MAE for the forecasted window from the XGBWrapper.
+    get_windowed_forecast() -> pd.DataFrame
+        Retrieves the forecasted DataFrame with actual and predicted values for the window.
+    """
     prophet_model_obj: ProphetWrapper | None = None
 
     def __post_init__(self):
@@ -81,6 +138,35 @@ class BacktestProphet(BacktestParent):
 
 @dataclass
 class BacktestARIMA(BacktestParent):
+        """
+    A class that extends BacktestParent to perform backtesting using the ARIMA model.
+
+    This class uses the ARIMAWrapper to create, train, and evaluate an ARIMA model
+    within a specified backtesting time window.
+
+    Attributes
+    ----------
+    cleaned_merged_data : pd.DataFrame
+        The preprocessed data set to be used for backtesting.
+    short_split_date : datetime
+        The date at which to split the data into training and testing sets.
+    n_backward : int, default 60
+        The number of days to look back from the `short_split_date` to create the training set.
+    forecast_window : int, default 24
+        The size of the window, in hours, for which to forecast ahead from the `short_split_date`.
+    forecast_metric : dict[str, list] | None, optional
+        A dictionary to store forecast metrics, initialized to None by default.
+    
+    Methods
+    -------
+    __post_init__()
+        Initializes the backtesting process by setting up the XGBWrapper with the
+        appropriate data slices and training the model.
+    get_windowed_rsme_mae() -> tuple[float, float]
+        Retrieves the RSME and MAE for the forecasted window from the XGBWrapper.
+    get_windowed_forecast() -> pd.DataFrame
+        Retrieves the forecasted DataFrame with actual and predicted values for the window.
+    """
     arima_model_obj: ARIMAWrapper | None = None
 
     def __post_init__(self):
