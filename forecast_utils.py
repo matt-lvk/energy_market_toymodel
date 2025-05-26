@@ -1,20 +1,32 @@
+# Inbuilt
 from dataclasses import dataclass
-import pandas as pd
-from darts import TimeSeries
-import data_utils as du
-import numpy as np
 from datetime import datetime
-from statsmodels.tsa.stattools import adfuller
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-import matplotlib.pyplot as plt
-from statsmodels.tsa.arima.model import ARIMA
-import plotters
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-import xgboost as xgb
-from xgboost import plot_importance, plot_tree
 from abc import ABC, abstractmethod
-from prophet import Prophet
+
+# Data Handling
+import pandas as pd
+import numpy as np
+
+# Visualization
+import matplotlib.pyplot as plt
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from xgboost import plot_importance, plot_tree
 import prophet.plot as fplot
+
+# TS Lib
+from darts import TimeSeries
+from prophet import Prophet
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
+from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
+
+# ML
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+# Custom Utilities
+import plotters
+import data_utils as du
 
 
 seed_value = 11
@@ -95,8 +107,8 @@ class ARIMAWrapper(ModelWrapper):
     # private
     ts_train: pd.DataFrame | TimeSeries | None = None
     ts_test: pd.DataFrame | TimeSeries | None = None
-    arima_model: ARIMA | None = None
-    arima_model_fit = None
+    model: ARIMA | None = None
+    model_fit: ARIMAResults | None = None
     forecasted_series: pd.Series | None = None
     order: tuple[int, int, int] | None = None
 
@@ -176,33 +188,33 @@ class ARIMAWrapper(ModelWrapper):
         self.order = best_order
         return self.order
     
-    def run_ARIMA(self, p, d, q, method: str | None = None) -> ARIMA:
+    def fit_model(self, p, d, q, method: str | None = None) -> None:
         if self.ts_train is None:
             raise ValueError("ts_train is empty. Run train_test_split first.")
         
         print("--------------------------------")
         print(f'Running ARIMA({p}, {d}, {q}) on train set')
-        self.arima_model = ARIMA(self.ts_train, order=(p, d, q))
-        self.arima_model_fit = self.arima_model.fit(method=method)
+        self.model = ARIMA(self.ts_train, order=(p, d, q))
+        self.model_fit = self.model.fit(method=method)
         self.order = (p, d, q)
-        print(self.arima_model_fit.summary())
+        print(self.model_fit.summary())
 
     def get_forecast(self, n_pred: int | None = None) -> pd.Series:
         if self.ts_test is None:
             raise ValueError("ts_test is empty. Run train_test_split first.")
         
-        if self.arima_model is None:
+        if self.model is None:
             print("self.arima_model model not found. Auto run best ARIMA.")
-            p, d, q, self.arima_model = self.get_best_ARIMA_params()
+            p, d, q, self.model = self.get_best_ARIMA_params()
             print(f"Selected ARIMA({p}, {d}, {q})")
-        self.arima_forecast_fit = self.arima_model.fit()
+        self.model_fit = self.model.fit()
         
         if n_pred is None:
             n_pred = len(self.ts_test)
         
         print("--------------------------------")
         print(f'Forecasting {n_pred} steps ahead')
-        self.forecasted_series = self.arima_model_fit.forecast(steps=n_pred)
+        self.forecasted_series = self.model_fit.forecast(steps=n_pred)
         return self.forecasted_series
 
     def plot_forecast(
@@ -527,3 +539,99 @@ class ProphetWrapper(ModelWrapper):
         print(f"RSME for Prophet: {round(prophet_rsme, 3)}")
         print(f"MAE for Prophet: {round(prophet_mae, 3)}")
         return prophet_rsme, prophet_mae
+
+
+@dataclass
+class SARIMAXWrapper(ARIMAWrapper):
+    """
+    A wrapper for the SARIMAX model (inherenting from ARIMAWrapper),
+    providing functionality to preprocess time series data,
+    determine stationarity, plot ACF and PACF graphs, determine the best SARIMAX
+    parameters, run the ARIMA model, forecast future values, and
+    evaluate model performance.
+
+    Attributes
+    ----------
+    ts : pd.DataFrame | TimeSeries
+        The time series data as a dataframe or TimeSeries object.
+    split_point : datetime | float
+        The point at which the data is split into training and testing sets.
+        If it's a float, it represents the proportion of the dataset to include in the train split.
+    start_date_slice : datetime, optional
+        Optional starting date for slicing the time series data.
+    end_date_slice : datetime, optional
+        Optional ending date for slicing the time series data.
+
+    Methods
+    -------
+    plot_acf_pacf(df=None)
+        Plots the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) of the time series.
+    get_best_ARIMA_params(df=None)
+        Determines the best ARIMA parameters based on the lowest Akaike Information Criterion (AIC).
+    fit_model(order:tuple, seasonal_order:tuple)
+        Runs the ARIMA model on the training set with provided order and fitting method.
+    get_forecast(n_pred=None)
+        Forecasts future values of the time series based on the fitted ARIMA model.
+    plot_forecast()
+        Plots the forecasted values against the actual values in the time series.
+    get_rmse_mae()
+        Calculates the Root Mean Square Error (RMSE) and Mean Absolute Error (MAE) of the forecasted values.
+
+    Notes
+    -----
+    The class assumes that the input time series includes a 'price' column that is used as the target variable.
+    The `ts` attribute from the parent class is used as the input time series data.
+    """
+    # Attribute
+    seasonal_order: tuple[int, int, int, int] | None = None
+    exog: pd.DataFrame | None = None
+
+    # Friend
+    model: SARIMAX | None = None
+    model_fit: SARIMAXResults | None = None
+    
+    def fit_model(
+                self,
+                order: tuple[int, int, int] | None = None,
+                ) -> None:
+        if order:
+            self.order = order
+        if self.ts_train is None:
+            raise ValueError("ts_train is empty. Run train_test_split first.")
+        
+        print("--------------------------------")
+        print(f'Running SARIMAX({self.order}) on train set')
+        self.model = SARIMAX(
+                                endog=self.ts_train,
+                                enxog=self.exog,
+                                order=self.order,
+                                seasonal_order=self.seasonal_order,
+                                )
+        self.model_fit = self.model.fit()
+        print(self.model_fit.summary())
+
+    def get_forecast(self, n_pred: int | None = None) -> pd.Series:
+        if self.model is None:
+            print("self.arima_model model not found. Auto run best SARIMAX(p,d,q).")
+            self.fit_model()
+            print(f"Selected ARIMA({self.order})")
+        self.model_fit = self.model.fit()
+        
+        if n_pred is None:
+            n_pred = len(self.ts_test)
+        
+        print("--------------------------------")
+        print(f'Forecasting {n_pred} steps ahead')
+        self.forecasted_series = self.model_fit.forecast(steps=n_pred)
+        return self.forecasted_series
+    
+    def get_rmse_mae(self) -> tuple[float, float]:
+        rmse = np.sqrt(mean_squared_error(self.ts_test, self.forecasted_series))
+        mae = mean_absolute_error(self.ts_test, self.forecasted_series)
+
+        rmse = round(rmse, 3)
+        mae = round(mae, 3)
+
+        print(f"RSME for SARIMAX{self.order},{self.seasonal_order}: {round(rmse, 4)}")
+        print(f"MAE for SARIMAX{self.order},{self.seasonal_order}: {round(mae, 4)}")
+        return rmse, mae
