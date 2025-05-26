@@ -90,7 +90,7 @@ class ARIMAWrapper(ModelWrapper):
         Plots the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) of the time series.
     get_best_ARIMA_params(df=None)
         Determines the best ARIMA parameters based on the lowest Akaike Information Criterion (AIC).
-    run_ARIMA(p, d, q, method=None)
+    fit_model(p, d, q, method=None)
         Runs the ARIMA model on the training set with provided order and fitting method.
     get_forecast(n_pred=None)
         Forecasts future values of the time series based on the fitted ARIMA model.

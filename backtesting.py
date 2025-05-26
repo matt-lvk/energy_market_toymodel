@@ -183,7 +183,7 @@ class BacktestARIMA(BacktestParent):
                 start_date_slice=start_slice,
                 end_date_slice=end_slice
                 )
-        self.arima_model_obj.run_ARIMA(3, 1, 4)
+        self.arima_model_obj.fit_model(3, 1, 4)
         self.arima_model_obj.get_forecast()
     
     def get_windowed_rsme_mae(self) -> tuple[float, float]:
