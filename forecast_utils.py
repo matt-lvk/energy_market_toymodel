@@ -1,12 +1,6 @@
 from dataclasses import dataclass
 import pandas as pd
 from darts import TimeSeries
-from darts.utils.statistics import (
-    check_seasonality, plot_acf, plot_pacf, remove_seasonality,remove_trend,
-    stationarity_test_adf
-)
-from darts.utils.model_selection import train_test_split
-
 import data_utils as du
 import numpy as np
 from datetime import datetime
@@ -15,14 +9,16 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 import plotters
-from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
 from xgboost import plot_importance, plot_tree
 from abc import ABC, abstractmethod
 from prophet import Prophet
+import prophet.plot as fplot
 
 
 seed_value = 11
+
 
 @dataclass
 class ModelWrapper(ABC):
@@ -45,7 +41,7 @@ class ModelWrapper(ABC):
     def train_test_split(self) -> tuple[pd.DataFrame | TimeSeries, pd.DataFrame | TimeSeries]:
         if isinstance(self.split_point, float):
             print("Using darts train_test_split function")
-            return train_test_split(self.ts, train_size=self.split_point)
+            # return train_test_split(self.ts, train_size=self.split_point)
         return du.ts_train_test_split(self.ts, self.split_point)
 
     @abstractmethod
@@ -55,6 +51,7 @@ class ModelWrapper(ABC):
     @abstractmethod
     def get_rmse_mae(self):
         pass
+
 
 @dataclass
 class ARIMAWrapper(ModelWrapper):
@@ -208,7 +205,12 @@ class ARIMAWrapper(ModelWrapper):
         self.forecasted_series = self.arima_model_fit.forecast(steps=n_pred)
         return self.forecasted_series
 
-    def plot_forecast(self):
+    def plot_forecast(
+            self,
+            title: str | None = None
+            ) -> None:
+        if not title:
+            title = f'Day-ahead Price [EUR/MWh] Predicted with ARIMA{self.order}'
         arima_pred_all = self.ts[['price']]
         arima_forecast = self.forecasted_series
         arima_forecast.name = 'price_prediction'
@@ -220,7 +222,9 @@ class ARIMAWrapper(ModelWrapper):
                 arima_pred_all,
                 'price',
                 'price_prediction',
-                f'Day-ahead Price [EUR/MWh] Predicted with ARIMA{self.order}',
+                title,
+                self.split_point,
+                self.start_date_slice,
                 )
         
     def get_rmse_mae(self) -> tuple[float, float]:
@@ -291,8 +295,9 @@ class XGBWrapper(ModelWrapper):
         self.X_test, self.y_test = self.xgb_test.drop(['price', 'datetime'], axis=1), self.xgb_test['price']
 
     def add_lagged_MA_price(self,
-                            hours: int | None = None,
+                            hours: int | list,
                             days: int | None = None,
+                            rolling_mean: bool = False
                             ) -> None:
         
         """
@@ -300,7 +305,7 @@ class XGBWrapper(ModelWrapper):
 
         Parameters
         ----------
-        hours : int, optional
+        hours : int or list
             Number of hours to lag. If not specified, days is used.
         days : int, optional
             Number of days to lag. If not specified, hours is used.
@@ -316,8 +321,11 @@ class XGBWrapper(ModelWrapper):
         """
         periods = []
 
-        if hours is not None:
-            periods.extend([i for i in range(1, hours + 1)])
+        if isinstance(hours, list):
+            periods.extend(hours)
+        elif isinstance(hours, int):
+            periods.append(hours)
+
         if days is not None:
             periods.extend([i * 24 for i in range(1, days + 1)])
 
@@ -326,12 +334,18 @@ class XGBWrapper(ModelWrapper):
         # self.X_test['mean_previous_1_hrs'] = self.y_test.shift(1)
 
         for i in periods:
-            print(f"Adding mean of previous {i} hours of price to X_train and X_test")
+            if rolling_mean:
+                print(f"Adding mean of previous {i} hours of price to X_train and X_test")
+                self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(i)\
+                                        .rolling(window=f'{i}H', min_periods=1).mean()
+                self.X_test[f'mean_previous_{i}_hrs'] = self.y_test.shift(i)\
+                                        .rolling(window=f'{i}H', min_periods=1).mean()
+            print(f"Adding mean of previous {i} hours of price to X_train and X_test [Rolling Mean]")
             self.X_train[f'mean_previous_{i}_hrs'] = self.y_train.shift(i)\
-                                    .rolling(window=f'{i}H', min_periods=1).mean()
+                        .rolling(window=f'{i}H', min_periods=1).mean()
             self.X_test[f'mean_previous_{i}_hrs'] = self.y_test.shift(i)\
-                                    .rolling(window=f'{i}H', min_periods=1).mean()
-            
+                                        .rolling(window=f'{i}H', min_periods=1).mean()
+        
     def run_xgb(self):
         self.model = xgb.XGBRegressor(
                                     seed=seed_value,
@@ -372,6 +386,8 @@ class XGBWrapper(ModelWrapper):
                 'price',
                 'price_prediction',
                 'Day-ahead Price [EUR/MWh] Predicted with XGBoost',
+                self.split_point,
+                self.start_date_slice,
                 )
     
     def get_rmse_mae(self) -> tuple[float, float]:
@@ -474,6 +490,8 @@ class ProphetWrapper(ModelWrapper):
         return data
     
     def run_prophet(self) -> None:
+        # interval_width=0.95 produce a prediction interval that is
+        # designed to contain the true future value 95% of the time
         self.prophet_model = Prophet(interval_width=0.95)
 
         self.prophet_model.fit(self.prophet_train)
@@ -495,8 +513,10 @@ class ProphetWrapper(ModelWrapper):
                 'y',
                 'yhat',
                 'Day-ahead Price [EUR/MWh] Predicted with Prophet',
+                self.split_point,
+                self.start_date_slice,
                 )
-        
+                
     def get_rmse_mae(self) -> tuple[float, float]:
         prophet_mae = round(mean_absolute_error(self.prophet_test['y'],
                                             self.forecasted_df['yhat']), 3)

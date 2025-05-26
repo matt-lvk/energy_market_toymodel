@@ -81,6 +81,9 @@ class BacktestXGB(BacktestParent):
     def get_windowed_forecast(self) -> pd.DataFrame:
         return self.short_xgb_obj.get_forecast_df
     
+    def plot_forecast(self):
+        self.short_xgb_obj.plot_forecast()
+    
 
 @dataclass
 class BacktestProphet(BacktestParent):
