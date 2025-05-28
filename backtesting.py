@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 # Data manipulation
-import numpy as np
 import pandas as pd
 from forecast_utils import ARIMAWrapper, XGBWrapper, ProphetWrapper
 from dataclasses import dataclass

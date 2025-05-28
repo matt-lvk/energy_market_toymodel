@@ -10,8 +10,7 @@ import numpy as np
 # Visualization
 import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-from xgboost import plot_importance, plot_tree
-import prophet.plot as fplot
+from xgboost import plot_importance  # ,plot_tree
 
 # TS Lib
 from darts import TimeSeries
@@ -19,6 +18,7 @@ from prophet import Prophet
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
 from statsmodels.tsa.statespace.sarimax import SARIMAX, SARIMAXResults
+from scipy.linalg import LinAlgError
 
 # ML
 import xgboost as xgb
@@ -179,7 +179,7 @@ class ARIMAWrapper(ModelWrapper):
                             best_aic = model_fit.aic
                             best_order = (p, d, q)
                             best_model = model_fit
-                    except:   # this needs to continue if mnodel cannot converge
+                    except LinAlgError:   # this needs to continue if mnodel cannot converge
                         continue
 
         print("--------------------------------")
