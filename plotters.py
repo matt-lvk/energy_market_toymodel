@@ -117,7 +117,6 @@ def plot_compare_two_col(
                     ) -> None:
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-
     fig.add_trace(
         go.Scatter(x=df.index, y=df[y1_var], name="y1_var"),
         secondary_y=False,
