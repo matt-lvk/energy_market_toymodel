@@ -12,7 +12,6 @@ class BatteryEnv:
     max_rate: float = 1.0       # MWh per step
     features: pd.DataFrame | None = None
     battery: float = field(init=False)
-    prev_battery: float = field(init=False)
 
     def __post_init__(self):
         self.T = len(self.price_series)
@@ -21,7 +20,6 @@ class BatteryEnv:
     def reset(self):
         self.t = 0
         self.battery = 0.0
-        self.prev_battery = 0.0
         self.done = False
         return self._get_state()
 
@@ -40,23 +38,21 @@ class BatteryEnv:
         if self.done:
             raise Exception("Episode is done. Call reset().")
 
-        self.prev_battery = self.battery
         price = self.price_series[self.t]
         reward = 0.0
 
-        if action == 1:  # charge
+        if self.battery == 0 and action == 1:  # charge
             charge_amt = min(self.max_rate, self.max_capacity - self.battery)
             self.battery += charge_amt
             reward = -price * charge_amt
-        elif action == 2:  # discharge
+
+        elif self.battery == 1 and action == 2:  # discharge
             discharge_amt = min(self.max_rate, self.battery)
             self.battery -= discharge_amt
             reward = price * discharge_amt
-        # else: hold = 0  # hold is doing nothing, left it be
-
-        # Check battery max capa
-        self.battery = max(0.0, min(self.battery, self.max_capacity))
-
+        else:  # hold is doing nothing, left it be
+            pass
+        
         self.t += 1
         self.done = self.t >= self.T
         return self._get_state(), reward, self.done, {}
@@ -118,7 +114,7 @@ class QLearningAgent:
 
     def get_policy(self):
         policy = {}
-        
+
         for state in self.Q:
             policy[state] = np.argmax(self.Q[state])
         return policy
