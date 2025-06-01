@@ -8,10 +8,11 @@ from dataclasses import dataclass, field
 @dataclass
 class BatteryEnv:
     price_series: np.ndarray
-    max_capacity: int = 1
-    max_rate: int = 1
+    max_capacity: float = 1.0   # MWh
+    max_rate: float = 1.0       # MWh per step
     features: pd.DataFrame | None = None
-    battery: float | None = None
+    battery: float = field(init=False)
+    prev_battery: float = field(init=False)
 
     def __post_init__(self):
         self.T = len(self.price_series)
@@ -19,17 +20,16 @@ class BatteryEnv:
 
     def reset(self):
         self.t = 0
-        self.battery = 0
+        self.battery = 0.0
+        self.prev_battery = 0.0
         self.done = False
         return self._get_state()
 
     def _get_state(self):
-        # Example state: (battery_level, hour)
         hour = self.t % 24
-        state = (self.battery, hour)
-        # Optionally add more features
-        if self.features:
-            feat = tuple(f[self.t] for f in self.features.values())
+        state = (round(self.battery, 3), hour)
+        if self.features is not None:
+            feat = tuple(self.features.iloc[self.t])
             state += feat
         return state
 
@@ -37,32 +37,36 @@ class BatteryEnv:
         """
         action: 0=hold, 1=charge, 2=discharge
         """
-        prev_battery = self.battery
-        price = self.price_series[self.t]
-        reward = 0
+        if self.done:
+            raise Exception("Episode is done. Call reset().")
 
-        if action == 1 and self.battery < self.max_capacity:
-            # Charge
-            self.battery = min(self.battery + self.max_rate, self.max_capacity)
-            reward = -price  # Pay to charge
-        elif action == 2 and self.battery > 0:
-            # Discharge
-            self.battery = max(self.battery - self.max_rate, 0)
-            reward = price  # Earn from discharge
-        # else: hold or invalid action (no penalty)
+        self.prev_battery = self.battery
+        price = self.price_series[self.t]
+        reward = 0.0
+
+        if action == 1:  # charge
+            charge_amt = min(self.max_rate, self.max_capacity - self.battery)
+            self.battery += charge_amt
+            reward = -price * charge_amt
+        elif action == 2:  # discharge
+            discharge_amt = min(self.max_rate, self.battery)
+            self.battery -= discharge_amt
+            reward = price * discharge_amt
+        # else: hold = 0  # hold is doing nothing, left it be
+
+        # Check battery max capa
+        self.battery = max(0.0, min(self.battery, self.max_capacity))
 
         self.t += 1
-        self.done = (self.t >= self.T)
+        self.done = self.t >= self.T
         return self._get_state(), reward, self.done, {}
 
     def action_space(self):
         return [0, 1, 2]  # hold, charge, discharge
 
     def state_space(self):
-        # Discretize battery and hour, plus any features
-        battery_states = np.arange(self.max_capacity + 1)
+        battery_states = np.linspace(0, self.max_capacity, int(self.max_capacity * 10) + 1)
         hour_states = np.arange(24)
-        # Optionally add more
         return battery_states, hour_states
 
 
@@ -91,24 +95,30 @@ class QLearningAgent:
 
     def train(self, episodes=1000, verbose=True):
         rewards = []
+
         for ep in range(episodes):
             state = self.env.reset()
             total_reward = 0
             done = False
+
             while not done:
                 action = self.choose_action(state)
                 next_state, reward, done, _ = self.env.step(action)
                 self.learn(state, action, reward, next_state, done)
                 state = next_state
                 total_reward += reward
+                
             rewards.append(total_reward)
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
+
             if verbose and (ep + 1) % 100 == 0:
                 print(f"Episode {ep + 1}, Reward: {total_reward:.2f}, Epsilon: {self.epsilon:.3f}")
+
         return rewards
 
     def get_policy(self):
         policy = {}
+        
         for state in self.Q:
             policy[state] = np.argmax(self.Q[state])
         return policy
