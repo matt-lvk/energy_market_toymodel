@@ -17,7 +17,10 @@ class BacktestParent(ABC):
     forecast_metric: dict[str, list] | None = None
 
     @abstractmethod
-    def get_windowed_rsme_mae():
+    def get_windowed_rsme_mae(self):
+        """
+        virtual function for rmse and mae
+        """
         pass
 
 

@@ -30,6 +30,7 @@ import data_utils as du
 
 
 seed_value = 11
+type TSDataFrame = pd.DataFrame | TimeSeries
 
 
 @dataclass
@@ -43,6 +44,9 @@ class ModelWrapper(ABC):
     start_date_slice: datetime | None = None
     end_date_slice: datetime | None = None
 
+    # private
+    model: ARIMA | SARIMAX | Prophet | xgb.XGBRegressor | None = None
+
     def df_slicer(self):
         if self.start_date_slice is not None:
             self.ts = self.ts.loc[self.ts.index >= self.start_date_slice]
@@ -50,7 +54,7 @@ class ModelWrapper(ABC):
             self.ts = self.ts.loc[self.ts.index <= self.end_date_slice]
         self.ts = self.ts.sort_index()
 
-    def train_test_split(self) -> tuple[pd.DataFrame | TimeSeries, pd.DataFrame | TimeSeries]:
+    def train_test_split(self) -> tuple[TSDataFrame, TSDataFrame]:
         if isinstance(self.split_point, float):
             print("Using darts train_test_split function")
             # return train_test_split(self.ts, train_size=self.split_point)
@@ -78,7 +82,9 @@ class ARIMAWrapper(ModelWrapper):
         The time series data as a dataframe or TimeSeries object.
     split_point : datetime | float
         The point at which the data is split into training and testing sets.
-        If it's a float, it represents the proportion of the dataset to include in the train split.
+        If it's a float, it represents the proportion of the dataset to include 
+        in the train split.
+        This point will be included in the training set.
     start_date_slice : datetime, optional
         Optional starting date for slicing the time series data.
     end_date_slice : datetime, optional
@@ -107,7 +113,6 @@ class ARIMAWrapper(ModelWrapper):
     # private
     ts_train: pd.DataFrame | TimeSeries | None = None
     ts_test: pd.DataFrame | TimeSeries | None = None
-    model: ARIMA | None = None
     model_fit: ARIMAResults | None = None
     forecasted_series: pd.Series | None = None
     order: tuple[int, int, int] | None = None
@@ -183,12 +188,18 @@ class ARIMAWrapper(ModelWrapper):
                         continue
 
         print("--------------------------------")
-        print(f'Best ARIMA order: {best_order} selected')
-        self.arima_model = best_model
+        print(f'Best ARIMA order: {best_order} selected in this class')
+        self.model = best_model     # replace self.model with the best model
         self.order = best_order
         return self.order
     
-    def fit_model(self, p, d, q, method: str | None = None) -> None:
+    def fit_model(
+            self,
+            p: int,
+            d: int,
+            q: int,
+            method: str | None = None
+            ) -> None:
         if self.ts_train is None:
             raise ValueError("ts_train is empty. Run train_test_split first.")
         
@@ -458,7 +469,6 @@ class ProphetWrapper(ModelWrapper):
     # private
     prophet_train: pd.DataFrame | None = None
     prophet_test: pd.DataFrame | None = None
-    prophet_model: xgb.XGBRegressor | None = None
     forecasted_df: pd.DataFrame | None = None
 
     def __post_init__(self):
@@ -504,13 +514,13 @@ class ProphetWrapper(ModelWrapper):
     def run_prophet(self) -> None:
         # interval_width=0.95 produce a prediction interval that is
         # designed to contain the true future value 95% of the time
-        self.prophet_model = Prophet(interval_width=0.95)
+        self.model = Prophet(interval_width=0.95)
 
-        self.prophet_model.fit(self.prophet_train)
+        self.model.fit(self.prophet_train)
         print("Prophet model fitted. Use get_forecast() to get forecast.")
     
     def get_forecast(self) -> pd.DataFrame:
-        self.forecasted_df = self.prophet_model.predict(
+        self.forecasted_df = self.model.predict(
                         self.prophet_test[['ds']]
                         )  # Keep the dataset format
         return self.forecasted_df
@@ -582,12 +592,8 @@ class SARIMAXWrapper(ARIMAWrapper):
     The class assumes that the input time series includes a 'price' column that is used as the target variable.
     The `ts` attribute from the parent class is used as the input time series data.
     """
-    # Attribute
     seasonal_order: tuple[int, int, int, int] | None = None
     exog: pd.DataFrame | None = None
-
-    # Friend
-    model: SARIMAX | None = None
     model_fit: SARIMAXResults | None = None
     
     def fit_model(
