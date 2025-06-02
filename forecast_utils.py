@@ -120,13 +120,13 @@ class ARIMAWrapper(ModelWrapper):
     def __post_init__(self):
         self.df_slicer()
 
-        print("Stationarity test for whole series with 0 lag:")
+        print("Stationarity test for whole series:")
         self.check_stationarity()
 
         print("Train-Test split at", self.split_point)
         self.ts_train, self.ts_test = self.train_test_split()
 
-        print("Stationarity test for train series with 0 lag:")
+        print("Stationarity test for training data:")
         self.check_stationarity(self.ts_train)
 
     def check_stationarity(self, df: pd.DataFrame | None = None) -> None:
