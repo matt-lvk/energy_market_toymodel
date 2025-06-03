@@ -211,6 +211,18 @@ class ARIMAWrapper(ModelWrapper):
         print(self.model_fit.summary())
 
     def get_forecast(self, n_pred: int | None = None) -> pd.Series:
+        """ Get forecast data
+
+        Parameters
+        ----------
+        n_pred : int | None, optional
+            forecast return with n-series. Default is size of training data
+
+        Returns
+        -------
+        pd.Series
+            forecast data of n-size. Default is size of training data
+        """
         if self.ts_test is None:
             raise ValueError("ts_test is empty. Run train_test_split first.")
         
@@ -472,6 +484,7 @@ class ProphetWrapper(ModelWrapper):
     forecasted_df: pd.DataFrame | None = None
 
     def __post_init__(self):
+        self.model: Prophet
         self.df_slicer()
 
         print("Train-Test split at", self.split_point)
@@ -519,11 +532,29 @@ class ProphetWrapper(ModelWrapper):
         self.model.fit(self.prophet_train)
         print("Prophet model fitted. Use get_forecast() to get forecast.")
     
-    def get_forecast(self) -> pd.DataFrame:
-        self.forecasted_df = self.model.predict(
-                        self.prophet_test[['ds']]
-                        )  # Keep the dataset format
-        return self.forecasted_df
+    def get_forecast(self, n: int) -> pd.DataFrame:
+        """ Get forecast data
+
+        Parameters
+        ----------
+        n : int | None, optional
+            forecast return with n-series. Default is size of training data
+
+        Returns
+        -------
+        pd.DataFrame
+            forecast data of n-size. Default is size of training data
+        """
+        if n:
+            last_timestamp = self.prophet_test[['ds']].max()
+            new_ds = pd.date_range(
+                            start=last_timestamp + pd.Timedelta(hours=1),
+                            periods=n,
+                            freq='H'
+                            )
+            return self.model.predict(new_ds)
+        
+        return self.model.predict(self.prophet_test[['ds']])
     
     def plot_forecast(self) -> None:
         df = self.ts[['ds', 'y']]
