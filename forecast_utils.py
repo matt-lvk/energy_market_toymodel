@@ -173,6 +173,8 @@ class ARIMAWrapper(ModelWrapper):
         best_order = None
         best_model = None
 
+        assert isinstance(df, pd.DataFrame), "useful error"
+
         # Loop over a range of p, d, q values
         for p in range(0, 6):           # Testing p values from 0 to 5
             for d in range(0, 3):       # Testing d values from 0 to 2

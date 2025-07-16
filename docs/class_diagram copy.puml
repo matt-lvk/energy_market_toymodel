@@ -1,0 +1,226 @@
+@startuml
+!theme plain
+
+package "Forecasting Models" {
+    abstract class ModelWrapper {
+        +ts: TSDataFrame
+        +split_date: datetime
+        +start_date_slice: datetime
+        +get_rmse_mae(): tuple
+        +plot_forecast(): void
+    }
+
+    class ARIMAWrapper {
+        +model: ARIMAResults
+        +run_ARIMA(p: int, d: int, q: int): void
+        +get_forecast(): void
+        +plot_acf_pacf(): void
+        +plot_residuals(): void
+    }
+
+    class ProphetWrapper {
+        +prophet_model: Prophet
+        +forecasted_df: DataFrame
+        +run_prophet(): void
+        +get_forecast(): DataFrame
+        +plot_forecast(): void
+        +plot_components(): void
+    }
+
+    class XGBWrapper {
+        +model: xgb.XGBRegressor
+        +predicted_XGBoost: DataFrame
+        +run_xgb(): void
+        +add_lagged_MA_price(hours: int, days: int): void
+        +plot_importance(): void
+        +plot_forecast(): void
+        +feature_engineering(): void
+    }
+}
+
+package "Battery Optimization" {
+    class BatteryEnv {
+        +max_capacity: float
+        +max_charge_discharge: float
+        +initial_charge: float
+        +current_charge: float
+        +time_step: int
+        +action_space(): list
+        +state_space(): tuple
+        +reset(): tuple
+        +step(action: int): tuple
+        +get_reward(action: int, price: float): float
+    }
+
+    class QLearningAgent {
+        +q_table: dict
+        +learning_rate: float
+        +discount_factor: float
+        +epsilon: float
+        +epsilon_decay: float
+        +choose_action(state: tuple): int
+        +update_q_table(state: tuple, action: int, reward: float, next_state: tuple): void
+        +train(episodes: int): void
+        +save_q_table(filepath: str): void
+        +load_q_table(filepath: str): void
+    }
+
+    class OptimizationSolver {
+        +battery_capacity: float
+        +charge_efficiency: float
+        +discharge_efficiency: float
+        +opt_battery_problem(predicted_prices: array): tuple
+        +solve_cvxpy_optimization(): Problem
+        +calculate_profit(schedule: array, prices: array): float
+    }
+}
+
+package "Backtesting Framework" {
+    abstract class BacktestParent {
+        +split_dates: list
+        +metrics: dict
+        +run_backtest(): void
+        +calculate_metrics(): dict
+        +plot_results(): void
+    }
+
+    class BacktestXGB {
+        +short_xgb_obj: XGBWrapper
+        +window_xgb_forecast: list
+        +rolling_predictions: DataFrame
+        +plot_forecast(): void
+        +evaluate_performance(): dict
+    }
+
+    class BacktestARIMA {
+        +arima_obj: ARIMAWrapper
+        +rolling_predictions: DataFrame
+        +plot_forecast(): void
+        +evaluate_performance(): dict
+    }
+
+    class BacktestProphet {
+        +prophet_obj: ProphetWrapper
+        +rolling_predictions: DataFrame
+        +plot_forecast(): void
+        +evaluate_performance(): dict
+    }
+}
+
+package "Utilities" {
+    class Plotters {
+        +plot_actual_predict(df: DataFrame, y_var: str, pred_var: str, title: str): void
+        +plot_violin_ts(df: DataFrame, x_var: str, y_var: str, title: str): void
+        +plot_compare_two_col(df: DataFrame, y1_var: str, y2_var: str, title: str): void
+        +plotly_actual_predict(df: DataFrame, y_var: str, pred_var: str, title: str): void
+        +plot_battery_schedule(schedule: array, prices: array): void
+        +plot_profit_analysis(results: dict): void
+    }
+
+    class DataUtils {
+        +load_price_data(filepath: str): DataFrame
+        +load_consumption_data(filepath: str): DataFrame
+        +load_generation_data(filepath: str): DataFrame
+        +clean_data(df: DataFrame): DataFrame
+        +add_time_features(df: DataFrame): DataFrame
+        +add_lag_features(df: DataFrame, lags: list): DataFrame
+        +train_test_split(df: DataFrame, split_date: datetime): tuple
+    }
+
+    class FeatureEngineer {
+        +create_moving_averages(df: DataFrame, windows: list): DataFrame
+        +create_seasonal_features(df: DataFrame): DataFrame
+        +create_price_volatility(df: DataFrame): DataFrame
+        +create_demand_features(df: DataFrame): DataFrame
+    }
+}
+
+package "Data Sources" {
+    class PriceData {
+        +filepath: str
+        +data: DataFrame
+        +load(): DataFrame
+        +validate(): bool
+    }
+
+    class ConsumptionData {
+        +filepath: str
+        +data: DataFrame
+        +load(): DataFrame
+        +validate(): bool
+    }
+
+    class GenerationData {
+        +filepath: str
+        +data: DataFrame
+        +load(): DataFrame
+        +validate(): bool
+    }
+}
+
+package "Main Pipeline" {
+    class MainPipeline {
+        +config: dict
+        +models: list
+        +battery_env: BatteryEnv
+        +run_forecasting_pipeline(): void
+        +run_optimization_pipeline(): void
+        +run_backtesting_pipeline(): void
+        +generate_reports(): void
+    }
+
+    class ConfigManager {
+        +model_params: dict
+        +battery_params: dict
+        +backtest_params: dict
+        +load_config(filepath: str): dict
+        +validate_config(): bool
+    }
+}
+
+' Inheritance relationships
+ModelWrapper <|-- ARIMAWrapper
+ModelWrapper <|-- ProphetWrapper
+ModelWrapper <|-- XGBWrapper
+
+BacktestParent <|-- BacktestXGB
+BacktestParent <|-- BacktestARIMA
+BacktestParent <|-- BacktestProphet
+
+' Composition relationships
+BatteryEnv *-- QLearningAgent
+MainPipeline *-- BatteryEnv
+MainPipeline *-- OptimizationSolver
+
+' Usage relationships
+BacktestXGB --> XGBWrapper : uses
+BacktestARIMA --> ARIMAWrapper : uses
+BacktestProphet --> ProphetWrapper : uses
+
+ARIMAWrapper --> Plotters : uses
+ProphetWrapper --> Plotters : uses
+XGBWrapper --> Plotters : uses
+
+ARIMAWrapper --> DataUtils : uses
+ProphetWrapper --> DataUtils : uses
+XGBWrapper --> DataUtils : uses
+
+XGBWrapper --> FeatureEngineer : uses
+
+DataUtils --> PriceData : loads
+DataUtils --> ConsumptionData : loads
+DataUtils --> GenerationData : loads
+
+OptimizationSolver --> BatteryEnv : optimizes
+XGBWrapper --> OptimizationSolver : provides forecasts
+
+MainPipeline --> ConfigManager : uses
+MainPipeline --> DataUtils : uses
+MainPipeline --> Plotters : uses
+
+' Aggregation relationships
+MainPipeline o-- ARIMAWrapper
+MainPipeline o-- ProphetWrapper
+MainPipeline o-- XGBWrapper
+
+@enduml
