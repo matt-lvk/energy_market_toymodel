@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
+from datetime import datetime
 
 color_pal = ["#F8766D", "#D39200", "#93AA00", "#00BA38", "#00C19F",
                 "#00B9E3", "#619CFF", "#DB72FB"]
@@ -117,7 +117,6 @@ def plot_compare_two_col(
                     ) -> None:
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-
     fig.add_trace(
         go.Scatter(x=df.index, y=df[y1_var], name="y1_var"),
         secondary_y=False,
@@ -147,6 +146,8 @@ def plotly_actual_predict(
                         y_var: str,
                         pred_var: str,
                         title: str,
+                        split_point: datetime | None = None,
+                        start_train_date: datetime | None = None,
                         ) -> None:
     """
     Show the plot actual and predicted values of a time series.
@@ -184,6 +185,12 @@ def plotly_actual_predict(
         font=dict(size=12),
         hovermode="x unified"
     )
+
+    if split_point:
+        fig.add_vline(x=split_point, line_width=3, line_dash="dash", line_color="green")
+    
+    if start_train_date:
+        fig.add_vline(x=start_train_date, line_width=3, line_color="orange")
     
     # add nice button 
     fig.update_xaxes(

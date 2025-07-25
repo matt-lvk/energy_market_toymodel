@@ -5,9 +5,8 @@ from datetime import datetime
 import holidays
 from meteostat import Point, Hourly
 from darts import TimeSeries
-from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tabulate import tabulate
-
 
 
 def add_date_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -58,7 +57,7 @@ def add_date_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_locations_weather(
-                    df: pd.DataFrame, 
+                    df: pd.DataFrame,
                     locations: dict[str, tuple[float, float]]
                     ) -> pd.DataFrame:
     """
@@ -145,6 +144,26 @@ def show_nrows_around_target(
 def ts_train_test_split(df: pd.DataFrame | TimeSeries,
                         split_date: datetime
                         ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split time series data into training and testing sets based on a given date.
+    Training data will include the split_date.
+
+    Parameters
+    ----------
+    df : pd.DataFrame | TimeSeries
+        Time series data
+    split_date : datetime
+        Date to split the data
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        Tuple of training and testing data
+    """
+    if not (isinstance(df.index, pd.DatetimeIndex)
+            or isinstance(df.index, datetime)):
+        raise Exception("DF index must be a DatetimeIndex or datetime object.")
+    
     train = df.loc[df.index <= split_date].copy()
     test = df.loc[df.index > split_date].copy()
     return train, test
@@ -160,7 +179,7 @@ def get_rmse_mae(y_true, y_pred) -> tuple[float, float]:
 def print_rmse_mae_table(
                         forecast_metric: dict[str, list[float, float]],
                         title: str | None = None
-                         ):
+                        ) -> None:
     if title:
         print(title)
     table = [[key] + (value if isinstance(value, list) else list(value.values())) 
